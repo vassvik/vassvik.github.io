@@ -11,14 +11,6 @@ apollonius_generalized: XsyBDc
 <p><link rel="stylesheet" 
 href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 
-<script 
-src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/contrib/auto-render.min.js"></script>
-
-<script>
-renderMathInElement(document.body);
-</script>
 
 
 <!--- Mathjax script and setup -->
@@ -121,3 +113,14 @@ In particular, to find a way to calculate the shape of an interface separating t
 <p align="center">
 <iframe src='https://gfycat.com/ifr/TediousUltimateHake' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
 </p>
+
+<script 
+src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/contrib/auto-render.min.js"></script>
+
+
+
+<script>
+renderMathInElement(document.body);
+</script>
