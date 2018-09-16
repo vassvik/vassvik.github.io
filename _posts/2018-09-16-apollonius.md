@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "apollonius"
+title: "katex"
 date: 2018-09-16
 youtubeId: rB83DpBJQsE
 youtubeId2: 0l8Mb0UqAN4&list=PL8nyW1bV9g_N6Rb6pM6dO4dRKg-4OD8cb
@@ -14,105 +14,23 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 
 
 <!--- Mathjax script and setup -->
+$$\begin{aligned}
+\nabla \cdot \vec u &=
+    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
+    \cdot
+    \left( u_x, u_y \right) \\
+&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
+\end{aligned}$$
 
-**This is a Work-In-Progress. The rest of this article will be fleshed out in due time.**
+<div>$$\begin{aligned}
+\nabla \cdot \vec u &=
+    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
+    \cdot
+    \left( u_x, u_y \right) \\
+&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
+\end{aligned}$$</div>
 
-## Introduction
-
-The *[Problem of Apollonius](https://en.wikipedia.org/wiki/Problem_of_Apollonius)* is a famous problem in geometry that is more than 2000 years old. The problem can be states as
-
-> Given three circles find a fourth circle that is simultaneously tangent to the other circles. 
-
-We can formulate this as a system of three coupled quadratic equations
-
-$\begin{align}
-  (x_s - x_1)^2 + (y_s - x_1)^2 = (r_s - s_1 r_1)^2 \\\
-  (x_s - x_2)^2 + (y_s - x_2)^2 = (r_s - s_2 r_2)^2 \\\
-  (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
-\end{align}$ 
-
-$$\begin{align}
-  (x_s - x_1)^2 + (y_s - x_1)^2 = (r_s - s_1 r_1)^2 \\\
-  (x_s - x_2)^2 + (y_s - x_2)^2 = (r_s - s_2 r_2)^2 \\\
-  (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
-\end{align}$$ 
-
-\\(\begin{align}
-  (x_s - x_1)^2 + (y_s - x_1)^2 = (r_s - s_1 r_1)^2 \\\
-  (x_s - x_2)^2 + (y_s - x_2)^2 = (r_s - s_2 r_2)^2 \\\
-  (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
-\end{align}\\) 
-
-where $(x_i, y_i)$ and $r_i$ are centers and radii of the three initial circles, and $(x_s, y_s)$ and $r_s$ is the center and radius of the solution circle. The *signs* $s_i$, determine whether the solution circle is *internally* or *externally* tangent to each of the initial circles. A circle is internally tangent if it is contained within the solution circle, otherwise it is externally tangent. For details on the numerical solution of equations (1)-(3), [click here](https://www.sharelatex.com/read/mxqspwvsbhny).
-
-In general there are 8 unique solutions to equations (1)-(3), one for each combination of sign $s_i$. For degenerate cases where the radius of one of more circles is zero or infinitely large several solutions collapse into one solution. These degenerate cases are often categorized into subgroups, such as the "circle-circle-point" (CCP) and the "circle-line-point" (CLP) solutions. In total there are 10 categories of degenerate solutions. 
-
-All 8 solutions to the full circle-circle-circle problem are illustrated in the following Shadertoy demo as conjugate 4 pairs, where each solution in a pair is related to the other by flipping all the tangency signs. 
-{% include shadertoyEmbed.html id=page.shader_apollonius %}
-
-A more interactive example can be found in the following Geogebra applet. You can grab the two top circles and move them around. The radius and sign of each circle can be changed using the sliders on the left hand side.
-<p align="center">
-<iframe scrolling="no" title="apollonius embed" src="https://www.geogebra.org/material/iframe/id/ykmfqpj8/width/1225/height/832/border/888888/smb/false/stb/false/stbh/false/ai/false/asb/false/sri/false/rc/false/ld/false/sdz/false/ctl/false" width="1225px" height="832px" style="border:0px;"> </iframe>
-</p>
-
-
-## Generalizations
-
-When you search for generalizations to the Problem of Apollonius you'll end up with [many different kinds of generalizations](https://en.wikipedia.org/wiki/Problem_of_Apollonius#Generalizations), such as [adding more circles](https://arxiv.org/abs/1611.03090) or [higher dimensional equivalent formulations](http://hjemmesider.diku.dk/~rfonseca/implementations/apollonius3d.pdf). 
-
-The generalization we consider here is of a different nature. Instead of finding a solution circle that is simultaneously *tangent* to each initial circle we will look for solution circles that intersect the initial circles at a specific angle. By considering this *contact angle* $\theta$ as parameter we can smoothly interpolate between the pair of solution circles introduced in the Shadertoy demo display above. As far as I can tell this has not been done before, but my search might not have been extensive enough.
-
-In terms of the contact angle parameter defined above we consider an *externally* tangent circle to correspond to a contact angle of 0 degrees, i.e. $\theta = 0^\circ$, and an *internally* tangent circle to correspond to a contact angle of 180 degrees, i.e. $\theta = 180^\circ$. A contact angle of 90 degrees would correspond to a solution circle that intersects every other circle at a right angle.  
-
-The following Shadertoy demo illustrates the solution to this generalization. The blue and red circles corresponds to the external and internal solutions in the previous Shadertoy demo, and the purple and orange solutions corresponds to the new generalized solutions. In the demo the contact angles oscillates between 0 (when the orange and blue lines overlap) and 180 degrees (when the purple and blue lines overlap), halting for a small amount of time at 90 degrees (when the orange and purple lines overlap). The clue to the construction of the solution lies in the green circles.
-{% include shadertoyEmbed.html id=page.apollonius_generalized %}
-
-Similar to the earlier demo there is a matching interactive Geogebra applet. Note that the color scheme is slightly different here.  
-<p align="center">
-<iframe scrolling="no" title="Apollonius Generalized embed" src="https://www.geogebra.org/material/iframe/id/vknj8zpb/width/1314/height/859/border/888888/smb/false/stb/false/stbh/false/ai/false/asb/false/sri/false/rc/false/ld/false/sdz/false/ctl/false" width="1314px" height="859px" style="border:0px;"> </iframe>
-</p>
-
-
-## Others
-
-The primary motivation for this work is to model a setup similar to the following experiment: 
-<p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?list=PL8nyW1bV9g_MwcZ-4_LIuto_qdxtRRIBZ" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-</p>
-and in [this study](http://juanesgroup.mit.edu/benchmark).
-
-In particular, to find a way to calculate the shape of an interface separating two fluids given a point and a contact angle. Some work-in-progress thing where this is used, without any additional comments (yet): 
-
-<p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?list=PL8nyW1bV9g_N6Rb6pM6dO4dRKg-4OD8cb" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-</p>
-
-<p align="center">
-<iframe src='https://gfycat.com/ifr/MammothIckyDutchsmoushond' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
-</p>
-
-<p align="center">
-<iframe src='https://gfycat.com/ifr/SilkyResponsibleGeese' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
-</p>
-
-
-<p align="center">
-<iframe src='https://gfycat.com/ifr/ZigzagCreamyBarnowl' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
-</p>
-
-
-<p align="center">
-<iframe src='https://gfycat.com/ifr/IdleImperturbableDegu' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
-</p>
-
-
-<p align="center">
-<iframe src='https://gfycat.com/ifr/IdenticalCheeryFlyingfox' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
-</p>
-
-<p align="center">
-<iframe src='https://gfycat.com/ifr/TediousUltimateHake' frameborder='0' scrolling='no' allowfullscreen width='640' height='453'></iframe>
-</p>
+asd \\(2+2=5\\)
 
 <script 
 src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.js"></script>
