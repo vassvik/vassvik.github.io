@@ -1,31 +1,12 @@
 ---
 layout: post
-title: "apollonius
+title: "apollonius"
 date: 2018-09-16
 youtubeId: rB83DpBJQsE
 youtubeId2: 0l8Mb0UqAN4&list=PL8nyW1bV9g_N6Rb6pM6dO4dRKg-4OD8cb
 shader_apollonius: XsKBWV
 apollonius_generalized: XsyBDc
 ---
-
-<!--- Mathjax script and setup
-<script type="text/x-mathjax-config">MathJax.Hub.Config({
-  tex2jax: {
-    inlineMath: [['$','$'], ["\\(","\\)"]],
-    displayMath: [['$$', '$$'], ["\\[", "\\]"]],
-    processEscapes: true
-  },
-  TeX: {
-    equationNumbers: {autoNumber: "AMS",
-    useLabelIds: true}
-  },
-  "HTML-CSS": {
-    minScaleAdjust: 100
-  }
-});</script>
-<script data-cfasync="false" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_SVG.js"></script>
--->
-
 
 <p><link rel="stylesheet" 
 href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
