@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "A generalization of the Problem of Apollonius 2
+title: "apollonius
 date: 2018-09-16
 youtubeId: rB83DpBJQsE
 youtubeId2: 0l8Mb0UqAN4&list=PL8nyW1bV9g_N6Rb6pM6dO4dRKg-4OD8cb
