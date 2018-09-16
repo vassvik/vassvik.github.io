@@ -16,7 +16,13 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 <!--- Mathjax script and setup -->
 
 
-
+<div>$$\begin{aligned}
+\nabla \cdot \vec u &=
+    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
+    \cdot
+    \left( u_x, u_y \right) \\
+&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
+\end{aligned}$$</div>
 
 
 <div>$$\begin{aligned}
