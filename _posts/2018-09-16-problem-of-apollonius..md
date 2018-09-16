@@ -58,6 +58,18 @@ $\begin{align}
   (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
 \end{align}$ 
 
+$$\begin{align}
+  (x_s - x_1)^2 + (y_s - x_1)^2 = (r_s - s_1 r_1)^2 \\\
+  (x_s - x_2)^2 + (y_s - x_2)^2 = (r_s - s_2 r_2)^2 \\\
+  (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
+\end{align}$$ 
+
+\(\begin{align}
+  (x_s - x_1)^2 + (y_s - x_1)^2 = (r_s - s_1 r_1)^2 \\\
+  (x_s - x_2)^2 + (y_s - x_2)^2 = (r_s - s_2 r_2)^2 \\\
+  (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
+\end{align}\) 
+
 where $(x_i, y_i)$ and $r_i$ are centers and radii of the three initial circles, and $(x_s, y_s)$ and $r_s$ is the center and radius of the solution circle. The *signs* $s_i$, determine whether the solution circle is *internally* or *externally* tangent to each of the initial circles. A circle is internally tangent if it is contained within the solution circle, otherwise it is externally tangent. For details on the numerical solution of equations (1)-(3), [click here](https://www.sharelatex.com/read/mxqspwvsbhny).
 
 In general there are 8 unique solutions to equations (1)-(3), one for each combination of sign $s_i$. For degenerate cases where the radius of one of more circles is zero or infinitely large several solutions collapse into one solution. These degenerate cases are often categorized into subgroups, such as the "circle-circle-point" (CCP) and the "circle-line-point" (CLP) solutions. In total there are 10 categories of degenerate solutions. 
