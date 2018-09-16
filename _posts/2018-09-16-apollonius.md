@@ -37,11 +37,11 @@ $$\begin{align}
   (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
 \end{align}$$ 
 
-\(\begin{align}
+\\(\begin{align}
   (x_s - x_1)^2 + (y_s - x_1)^2 = (r_s - s_1 r_1)^2 \\\
   (x_s - x_2)^2 + (y_s - x_2)^2 = (r_s - s_2 r_2)^2 \\\
   (x_s - x_3)^2 + (y_s - x_3)^2 = (r_s - s_3 r_3)^2  
-\end{align}\) 
+\end{align}\\) 
 
 where $(x_i, y_i)$ and $r_i$ are centers and radii of the three initial circles, and $(x_s, y_s)$ and $r_s$ is the center and radius of the solution circle. The *signs* $s_i$, determine whether the solution circle is *internally* or *externally* tangent to each of the initial circles. A circle is internally tangent if it is contained within the solution circle, otherwise it is externally tangent. For details on the numerical solution of equations (1)-(3), [click here](https://www.sharelatex.com/read/mxqspwvsbhny).
 
