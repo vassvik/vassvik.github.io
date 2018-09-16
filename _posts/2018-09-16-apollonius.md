@@ -16,13 +16,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 <!--- Mathjax script and setup -->
 
 
-$$ \begin{aligned}
-\nabla \cdot \vec u &=
-    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
-    \cdot
-    \left( u_x, u_y \right) \\
-&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
-\end{aligned}$$
+
 
 
 <div>$$\begin{aligned}
@@ -46,7 +40,7 @@ $$ \begin{aligned}
 
 asd \\(2+2=5\\) qwe
 
-Asd & 2+3=4& qwe
+
 
 <script 
 src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.js"></script>
