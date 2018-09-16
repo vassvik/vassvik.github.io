@@ -20,7 +20,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
-    \left( u_x, u_y \right) \\
+    \left( u_x, u_y \right) \tag{1} \\
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
 \end{aligned}$$</div>
 
@@ -29,7 +29,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
-    \left( u_x, u_y \right) \\[5ex]
+    \left( u_x, u_y \right) \\[0.5ex]
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
 \end{aligned}$$</div>
 
@@ -38,7 +38,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
-    \left( u_x, u_y \right) \\[10ex] 
+    \left( u_x, u_y \right) \\[1.0ex] 
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
 \end{aligned}$$</div>
 
