@@ -16,20 +16,20 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 <!--- Mathjax script and setup -->
 
 
-<div>$$\tag{1} \begin{aligned}
+$$ \begin{aligned}
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
     \left( u_x, u_y \right) \\
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
-\end{aligned}$$</div>
+\end{aligned}$$
 
 
 <div>$$\begin{aligned}
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
-    \left( u_x, u_y \right) \\[0.5ex]
+    \left( u_x, u_y \right) \\[1.5ex]
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
 \end{aligned}$$</div>
 
@@ -40,7 +40,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
-    \left( u_x, u_y \right) \\[1.0ex] 
+    \left( u_x, u_y \right) \\[2.0ex] 
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
 \end{aligned}$$</div>
 
