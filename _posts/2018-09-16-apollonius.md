@@ -20,50 +20,21 @@ href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.6.0/katex.min.css"></p>
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
-    \left( u_x, u_y \right) \\
+    \left( u_x, u_y \right) \\[2.5ex] 
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
 \end{aligned}$$</div>
 
-
-<div>$$\begin{aligned}
-\nabla \cdot \vec u &=
-    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
-    \cdot
-    \left( u_x, u_y \right) \\[1.5ex]
-&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
-\end{aligned}$$</div>
-
-
-
-
-<div>$$\begin{aligned}
-\nabla \cdot \vec u &=
-    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
-    \cdot
-    \left( u_x, u_y \right) \\[2.0ex] 
-&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
-\end{aligned}$$</div>
-
-
-<div>$$\begin{aligned}
+<div>
+\[
+    \begin{aligned}
 \nabla \cdot \vec u &=
     \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
     \cdot
     \left( u_x, u_y \right) \\[2.5ex] 
 &= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
-\end{aligned}$$</div>
-
-
-<div>$$\begin{aligned}
-\nabla \cdot \vec u &=
-    \left( \frac{\partial}{\partial x}, \frac{\partial}{\partial y} \right) 
-    \cdot
-    \left( u_x, u_y \right) \\[3.0ex] 
-&= \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y}
-\end{aligned}$$</div>
-
-asd \\(2+2=5\\) qwe
-
+\end{aligned}
+\]
+</div>
 
 
 <script 
