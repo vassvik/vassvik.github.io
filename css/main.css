@@ -33,6 +33,6 @@ ul.posts li { list-style: none; }
 }
 
 .katex .tag {
-    position: relative;
+    position: relative !important;
     right: 0;
 }
