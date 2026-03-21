@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VDB Inspector</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2e3348;
+    --text: #e2e4ed;
+    --text-dim: #8b8fa3;
+    --accent: #6c8aff;
+    --accent-dim: #3d5299;
+    --green: #4ade80;
+    --orange: #fb923c;
+    --red: #f87171;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    line-height: 1.5;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; }
+
+  h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
+
+  .subtitle { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 2rem; }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(108, 138, 255, 0.05);
+  }
+
+  .drop-zone input {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  .drop-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .drop-text { color: var(--text-dim); font-size: 0.9rem; }
+  .drop-text strong { color: var(--accent); }
+
+  .error {
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    color: var(--red);
+    font-size: 0.875rem;
+  }
+
+  .results { margin-top: 1.5rem; }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+
+  .section-header {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-body { padding: 0.75rem 1rem; }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.35rem 0;
+    gap: 1rem;
+  }
+
+  .row + .row { border-top: 1px solid rgba(46, 51, 72, 0.5); }
+
+  .label { color: var(--text-dim); font-size: 0.8rem; flex-shrink: 0; }
+
+  .value {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    text-align: right;
+    word-break: break-all;
+  }
+
+  .tag {
+    display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+    font-size: 0.75rem; font-weight: 500;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  .tag-blue { background: rgba(108,138,255,0.15); color: var(--accent); }
+  .tag-green { background: rgba(74,222,128,0.15); color: var(--green); }
+  .tag-orange { background: rgba(251,146,60,0.15); color: var(--orange); }
+
+  .grid-card {
+    border: 1px solid var(--border); border-radius: 8px;
+    margin: 0.5rem 0; overflow: hidden;
+  }
+
+  .grid-card-header {
+    padding: 0.6rem 0.85rem; background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  }
+
+  .grid-name { font-weight: 600; font-size: 0.9rem; }
+
+  .grid-card-body { padding: 0.6rem 0.85rem; }
+
+  .matrix {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.7rem; background: var(--surface2); border-radius: 6px;
+    padding: 0.5rem; margin-top: 0.35rem; overflow-x: auto;
+    white-space: pre; line-height: 1.6; color: var(--text-dim);
+  }
+
+  .filename-bar {
+    display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;
+    padding: 0.6rem 1rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+
+  .filename-bar .fname { font-family: 'SF Mono', monospace; font-size: 0.85rem; flex: 1; }
+  .filename-bar .fsize { color: var(--text-dim); font-size: 0.8rem; }
+
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.75rem;
+    transition: all 0.15s;
+  }
+
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .debug-log {
+    font-size: 0.7rem; color: var(--text-dim); white-space: pre-wrap;
+    margin: 0; font-family: 'SF Mono', 'Cascadia Code', monospace;
+  }
+
+  @media (max-width: 500px) {
+    body { padding: 1rem 0.75rem; }
+    .row { flex-direction: column; gap: 0.1rem; }
+    .value { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>VDB Inspector</h1>
+  <p class="subtitle">Drop a .vdb file to inspect its metadata, grids, and transforms. Everything runs locally in your browser.</p>
+  
+  <div id="dropZone" class="drop-zone">
+    <div class="drop-icon">📦</div>
+    <div class="drop-text"><strong>Drop .vdb file here</strong> or click to browse</div>
+    <input type="file" id="fileInput" accept=".vdb">
+  </div>
+  
+  <div id="error" class="error" style="display:none"></div>
+  <div id="results" class="results"></div>
+</div>
+
+<script>
+// --- Binary reader ---
+
+class VDBReader {
+  constructor(buffer) {
+    this.buf = buffer;
+    this.view = new DataView(buffer);
+    this.offset = 0;
+  }
+  u8()  { const v = this.view.getUint8(this.offset); this.offset += 1; return v; }
+  i32() { const v = this.view.getInt32(this.offset, true); this.offset += 4; return v; }
+  u32() { const v = this.view.getUint32(this.offset, true); this.offset += 4; return v; }
+  f32() { const v = this.view.getFloat32(this.offset, true); this.offset += 4; return v; }
+  f64() { const v = this.view.getFloat64(this.offset, true); this.offset += 8; return v; }
+  i64() {
+    const lo = this.view.getUint32(this.offset, true);
+    const hi = this.view.getInt32(this.offset + 4, true);
+    this.offset += 8;
+    return hi * 0x100000000 + lo;
+  }
+  bool() { return this.u8() !== 0; }
+  str() {
+    const len = this.u32();
+    if (len > 100000) throw new Error(`Implausible string length: ${len} at offset ${this.offset - 4}`);
+    const bytes = new Uint8Array(this.buf, this.offset, len);
+    this.offset += len;
+    return new TextDecoder().decode(bytes);
+  }
+  skip(n) { this.offset += n; }
+  seek(pos) { this.offset = pos; }
+  tell() { return this.offset; }
+  hexdump(n) {
+    const bytes = new Uint8Array(this.buf, this.offset, Math.min(n, this.buf.byteLength - this.offset));
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  }
+}
+
+// --- Debug log ---
+
+let debugLog = [];
+function dbg(msg) { debugLog.push(msg); }
+
+// --- Metadata parser ---
+
+function parseMetadata(r) {
+  const count = r.u32();
+  dbg(`  metadata count=${count} at offset ${r.tell() - 4}`);
+  const meta = {};
+  for (let i = 0; i < count; i++) {
+    const name = r.str();
+    const type = r.str();
+    const numBytes = r.u32();
+    const start = r.tell();
+    let value;
+    try {
+      switch (type) {
+        case 'string': value = r.str(); break;
+        case 'bool': value = r.bool(); break;
+        case 'int32': value = r.i32(); break;
+        case 'int64': value = r.i64(); break;
+        case 'float': value = r.f32(); break;
+        case 'double': value = r.f64(); break;
+        case 'vec3i': value = [r.i32(), r.i32(), r.i32()]; break;
+        case 'vec3s': value = [r.f32(), r.f32(), r.f32()]; break;
+        case 'vec3d': value = [r.f64(), r.f64(), r.f64()]; break;
+        default: value = `(${numBytes} bytes)`; break;
+      }
+    } catch (e) {
+      value = `(parse error, ${numBytes} bytes)`;
+    }
+    r.seek(start + numBytes);
+    dbg(`  meta: "${name}" (${type}) = ${JSON.stringify(value)}`);
+    meta[name] = { type, value };
+  }
+  return meta;
+}
+
+// --- Transform parser ---
+
+function parseTransform(r) {
+  const mapType = r.str();
+  dbg(`  transform mapType="${mapType}" at offset ${r.tell()}`);
+  const info = { mapType };
+
+  try {
+    if (mapType === 'NonlinearFrustumMap') {
+      const bbMin = [r.f64(), r.f64(), r.f64()];
+      const bbMax = [r.f64(), r.f64(), r.f64()];
+      const taper = r.f64();
+      const depth = r.f64();
+      info.boundingBox = { min: bbMin, max: bbMax };
+      info.taper = taper;
+      info.depth = depth;
+      const innerType = r.str();
+      info.innerMapType = innerType;
+      const m = [];
+      for (let i = 0; i < 16; i++) m.push(r.f64());
+      info.innerMatrix = m;
+    } else {
+      const m = [];
+      for (let i = 0; i < 16; i++) m.push(r.f64());
+      info.matrix = m;
+      const sx = Math.sqrt(m[0]*m[0] + m[1]*m[1] + m[2]*m[2]);
+      const sy = Math.sqrt(m[4]*m[4] + m[5]*m[5] + m[6]*m[6]);
+      const sz = Math.sqrt(m[8]*m[8] + m[9]*m[9] + m[10]*m[10]);
+      info.voxelSize = [sx, sy, sz];
+      info.translation = [m[3], m[7], m[11]];
+    }
+  } catch (e) {
+    info.error = e.message;
+  }
+
+  return info;
+}
+
+// --- Main parser ---
+
+function parseVDB(buffer) {
+  debugLog = [];
+  const r = new VDBReader(buffer);
+  const result = { header: {}, fileMetadata: {}, grids: [] };
+
+  // Magic (8 bytes)
+  dbg(`[${r.tell()}] next 16 bytes: ${r.hexdump(16)}`);
+  const magic = r.i64();
+  dbg(`[${r.tell()}] magic=0x${magic.toString(16)}`);
+
+  if (magic !== 0x56444220) {
+    throw new Error(`Not a valid OpenVDB file (magic=0x${magic.toString(16)}, expected 0x56444220)`);
+  }
+
+  // File format version
+  const ver = r.u32();
+  result.header.fileVersion = ver;
+  dbg(`[${r.tell()}] fileVersion=${ver}`);
+
+  // Library version
+  if (ver >= 211) {
+    result.header.libMajor = r.u32();
+    result.header.libMinor = r.u32();
+    dbg(`[${r.tell()}] lib=${result.header.libMajor}.${result.header.libMinor}`);
+  }
+
+  // Grid offsets flag
+  let hasGridOffsets = false;
+  if (ver >= 212) {
+    hasGridOffsets = r.bool();
+    result.header.hasGridOffsets = hasGridOffsets;
+    dbg(`[${r.tell()}] hasGridOffsets=${hasGridOffsets}`);
+  }
+
+  // Compression
+  if (ver >= 222) {
+    const c = r.u32();
+    result.header.compression = c;
+    const names = [];
+    if (c === 0) names.push('none');
+    if (c & 1) names.push('zip');
+    if (c & 2) names.push('active_mask');
+    if (c & 4) names.push('blosc');
+    result.header.compressionNames = names;
+    dbg(`[${r.tell()}] compression=${c} (${names.join('+')})`);
+  }
+
+  // UUID (16 bytes)
+  dbg(`[${r.tell()}] reading UUID, next bytes: ${r.hexdump(16)}`);
+  const uuidBytes = new Uint8Array(buffer, r.tell(), 16);
+  r.skip(16);
+  const hex = Array.from(uuidBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  result.header.uuid = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  dbg(`[${r.tell()}] uuid=${result.header.uuid}`);
+
+  // File-level metadata
+  dbg(`[${r.tell()}] reading file metadata`);
+  result.fileMetadata = parseMetadata(r);
+
+  // Grid count
+  const gridCount = r.u32();
+  dbg(`[${r.tell()}] gridCount=${gridCount}`);
+
+  // Grid descriptors
+  const descriptors = [];
+  for (let i = 0; i < gridCount; i++) {
+    dbg(`[${r.tell()}] --- grid descriptor ${i} ---`);
+    const desc = {};
+    desc.uniqueName = r.str();
+    dbg(`  uniqueName="${desc.uniqueName}"`);
+    desc.gridType = r.str();
+    dbg(`  gridType="${desc.gridType}"`);
+
+    if (ver >= 220) {
+      desc.instanceParent = r.str();
+      dbg(`  instanceParent="${desc.instanceParent}"`);
+    }
+
+    if (hasGridOffsets) {
+      desc.dataStart = r.i64();
+      desc.dataEnd = r.i64();
+      dbg(`  dataStart=${desc.dataStart}, dataEnd=${desc.dataEnd}`);
+    }
+
+    descriptors.push(desc);
+  }
+
+  // Grid data (metadata + transform per grid)
+  for (let i = 0; i < descriptors.length; i++) {
+    const desc = descriptors[i];
+    dbg(`[${r.tell()}] === grid data ${i}: "${desc.uniqueName}" ===`);
+    const grid = {
+      name: desc.uniqueName.replace(/\[\d+\]$/, ''),
+      gridType: desc.gridType,
+      instanceParent: desc.instanceParent || null,
+    };
+
+    try {
+      if (hasGridOffsets && desc.dataStart > 0) {
+        dbg(`  seeking to dataStart=${desc.dataStart}`);
+        r.seek(desc.dataStart);
+      }
+
+      // Per-grid compression
+      if (ver >= 222) {
+        const gc = r.u32();
+        grid.gridCompression = gc;
+        dbg(`  gridCompression=${gc}`);
+      }
+
+      dbg(`  reading grid metadata at offset ${r.tell()}`);
+      grid.metadata = parseMetadata(r);
+
+      dbg(`  reading grid transform at offset ${r.tell()}`);
+      grid.transform = parseTransform(r);
+
+    } catch (e) {
+      grid.parseError = e.message;
+      dbg(`  PARSE ERROR: ${e.message}`);
+    }
+
+    result.grids.push(grid);
+  }
+
+  return result;
+}
+
+// --- Rendering helpers ---
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmtNum(n) { if (Number.isInteger(n)) return n.toString(); return n.toPrecision(6).replace(/\.?0+$/, ''); }
+function formatValue(v) {
+  if (Array.isArray(v)) return `[${v.map(x => typeof x === 'number' ? fmtNum(x) : x).join(', ')}]`;
+  if (typeof v === 'number') return fmtNum(v);
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  return String(v);
+}
+function formatMatrix4x4(m) {
+  const rows = [];
+  for (let r = 0; r < 4; r++) {
+    const cells = [];
+    for (let c = 0; c < 4; c++) cells.push(fmtNum(m[r * 4 + c]).padStart(12));
+    rows.push(cells.join('  '));
+  }
+  return rows.join('\n');
+}
+function mapTypeTag(t) {
+  if (t.includes('Frustum')) return `<span class="tag tag-orange">${t}</span>`;
+  if (t.includes('Uniform')) return `<span class="tag tag-green">${t}</span>`;
+  return `<span class="tag tag-blue">${t}</span>`;
+}
+function gridTypeShort(t) {
+  const m = t.match(/Tree_(\w+?)_(\d+)_(\d+)_(\d+)/);
+  if (m) return `${m[1]} [${m[2]},${m[3]},${m[4]}]`;
+  return t;
+}
+
+// --- Render results ---
+
+function renderResults(info, fileName, fileSize) {
+  const h = info.header;
+  let html = '';
+
+  html += `<div class="filename-bar">
+    <span class="fname">${esc(fileName)}</span>
+    <span class="fsize">${(fileSize / 1024 / 1024).toFixed(1)} MB</span>
+    <button class="reset-btn" onclick="resetUI()">Clear</button>
+  </div>`;
+
+  // Header
+  html += `<div class="section"><div class="section-header">File Header</div><div class="section-body">
+    <div class="row"><span class="label">Format version</span><span class="value">${h.fileVersion}</span></div>`;
+  if (h.libMajor != null) html += `<div class="row"><span class="label">Library version</span><span class="value">${h.libMajor}.${h.libMinor}</span></div>`;
+  if (h.compressionNames) html += `<div class="row"><span class="label">Compression</span><span class="value">${h.compressionNames.join(' + ')}</span></div>`;
+  html += `<div class="row"><span class="label">Grid offsets</span><span class="value">${h.hasGridOffsets ? 'yes' : 'no'}</span></div>`;
+  html += `<div class="row"><span class="label">UUID</span><span class="value">${h.uuid}</span></div>`;
+  html += `</div></div>`;
+
+  // File metadata
+  const fmKeys = Object.keys(info.fileMetadata);
+  if (fmKeys.length > 0) {
+    html += `<div class="section"><div class="section-header">File Metadata</div><div class="section-body">`;
+    for (const k of fmKeys) {
+      const e = info.fileMetadata[k];
+      html += `<div class="row"><span class="label">${esc(k)} <span style="opacity:0.5">(${e.type})</span></span><span class="value">${esc(formatValue(e.value))}</span></div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // Grids
+  html += `<div class="section"><div class="section-header">Grids (${info.grids.length})</div><div class="section-body">`;
+  for (const g of info.grids) {
+    html += `<div class="grid-card"><div class="grid-card-header">
+      <span class="grid-name">${esc(g.name)}</span>
+      <span class="tag tag-blue">${esc(gridTypeShort(g.gridType))}</span>`;
+    if (g.transform) html += mapTypeTag(g.transform.mapType);
+    html += `</div><div class="grid-card-body">`;
+
+    if (g.parseError) html += `<div style="color:var(--red);font-size:0.8rem">Parse error: ${esc(g.parseError)}</div>`;
+
+    if (g.transform && !g.parseError) {
+      const t = g.transform;
+      if (t.mapType === 'NonlinearFrustumMap') {
+        html += `<div class="row"><span class="label">Taper</span><span class="value">${fmtNum(t.taper)}</span></div>`;
+        html += `<div class="row"><span class="label">Depth</span><span class="value">${fmtNum(t.depth)}</span></div>`;
+        if (t.boundingBox) {
+          html += `<div class="row"><span class="label">BBox min</span><span class="value">${t.boundingBox.min.map(fmtNum).join(', ')}</span></div>`;
+          html += `<div class="row"><span class="label">BBox max</span><span class="value">${t.boundingBox.max.map(fmtNum).join(', ')}</span></div>`;
+        }
+        if (t.innerMatrix) {
+          html += `<div class="row"><span class="label">Inner map</span><span class="value">${esc(t.innerMapType || 'AffineMap')}</span></div>`;
+          html += `<div class="matrix">${formatMatrix4x4(t.innerMatrix)}</div>`;
+        }
+      } else {
+        if (t.voxelSize) {
+          const vs = t.voxelSize;
+          const uniform = Math.abs(vs[0] - vs[1]) < 1e-9 && Math.abs(vs[1] - vs[2]) < 1e-9;
+          html += `<div class="row"><span class="label">Voxel size</span><span class="value">${uniform ? fmtNum(vs[0]) : vs.map(fmtNum).join(' × ')}</span></div>`;
+        }
+        if (t.translation && (t.translation[0] !== 0 || t.translation[1] !== 0 || t.translation[2] !== 0)) {
+          html += `<div class="row"><span class="label">Translation</span><span class="value">${t.translation.map(fmtNum).join(', ')}</span></div>`;
+        }
+        if (t.matrix) html += `<div class="matrix">${formatMatrix4x4(t.matrix)}</div>`;
+      }
+    }
+
+    if (g.metadata && Object.keys(g.metadata).length > 0) {
+      for (const k of Object.keys(g.metadata)) {
+        const e = g.metadata[k];
+        html += `<div class="row"><span class="label">${esc(k)} <span style="opacity:0.5">(${e.type})</span></span><span class="value">${esc(formatValue(e.value))}</span></div>`;
+      }
+    }
+
+    html += `</div></div>`;
+  }
+  html += `</div></div>`;
+
+  return html;
+}
+
+function renderDebugLog() {
+  if (!debugLog.length) return '';
+  return `<div class="section"><div class="section-header">Debug Log</div><div class="section-body"><pre class="debug-log">${debugLog.map(esc).join('\n')}</pre></div></div>`;
+}
+
+// --- UI ---
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const errorDiv = document.getElementById('error');
+const resultsDiv = document.getElementById('results');
+
+function showError(msg) {
+  errorDiv.textContent = msg;
+  errorDiv.style.display = 'block';
+}
+
+function resetUI() {
+  errorDiv.style.display = 'none';
+  resultsDiv.innerHTML = '';
+  fileInput.value = '';
+  dropZone.style.display = '';
+}
+
+function handleFile(file) {
+  if (!file) return;
+  errorDiv.style.display = 'none';
+  resultsDiv.innerHTML = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const result = parseVDB(e.target.result);
+      dropZone.style.display = 'none';
+      resultsDiv.innerHTML = renderResults(result, file.name, file.size) + renderDebugLog();
+    } catch (err) {
+      showError(`Failed to parse VDB: ${err.message}`);
+      resultsDiv.innerHTML = renderDebugLog();
+      console.error(err);
+    }
+  };
+  reader.onerror = function() { showError('Failed to read file'); };
+  reader.readAsArrayBuffer(file);
+}
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+</script>
+</body>
+</html>
