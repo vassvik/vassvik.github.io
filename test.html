@@ -376,8 +376,8 @@ function parseVDB(buffer) {
   const r = new VDBReader(buffer);
   const result = { header: {}, fileMetadata: {}, grids: [] };
 
-  // Magic
-  const magic = r.i32();
+  // Magic (8 bytes, int64)
+  const magic = r.i64();
   if (magic !== 0x56444220) {
     throw new Error('Not a valid OpenVDB file (bad magic number)');
   }
