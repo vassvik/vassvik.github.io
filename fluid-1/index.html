@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WebGPU Fluid — Stable Fluids</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: #e2e4ed;
+    touch-action: none;
+  }
+  #sim { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+  #panel {
+    position: fixed; top: 12px; left: 12px; z-index: 10;
+    background: rgba(15,17,23,0.82); backdrop-filter: blur(8px);
+    border: 1px solid #2e3348; border-radius: 10px;
+    padding: 12px 14px; width: 248px;
+    font-size: 13px; user-select: none;
+    transition: opacity .2s;
+  }
+  #panel.collapsed .body { display: none; }
+  #panel h1 { font-size: 13px; font-weight: 700; letter-spacing: .02em;
+    display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  #panel h1 .tag { color: #8b8fa3; font-weight: 400; font-size: 11px; }
+  .body { margin-top: 10px; }
+  .ctrl { margin-bottom: 11px; }
+  .ctrl:last-child { margin-bottom: 0; }
+  .ctrl label { display: flex; justify-content: space-between; color: #b9bdcc; margin-bottom: 5px; }
+  .ctrl label .val { color: #e2e4ed; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #4ade80; height: 18px; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg button {
+    flex: 1 1 0; min-width: 30px; padding: 5px 0; cursor: pointer;
+    background: #1a1d27; color: #b9bdcc; border: 1px solid #2e3348;
+    border-radius: 6px; font-size: 12px; font-variant-numeric: tabular-nums;
+  }
+  .seg button.active { background: #14331f; color: #4ade80; border-color: #2c6b41; }
+  .row { display: flex; gap: 6px; }
+  .row button {
+    flex: 1; padding: 6px 0; cursor: pointer; font-size: 12px;
+    background: #1a1d27; color: #b9bdcc; border: 1px solid #2e3348; border-radius: 6px;
+  }
+  .row button:hover { background: #232735; }
+  .stat { color: #8b8fa3; font-size: 11px; margin-top: 4px; }
+  #fail {
+    position: fixed; inset: 0; display: none; place-items: center; padding: 2rem;
+    background: #0f1117; text-align: center;
+  }
+  #fail .card { max-width: 420px; }
+  #fail h2 { color: #f87171; font-size: 1.3rem; margin-bottom: .75rem; }
+  #fail p { color: #b9bdcc; line-height: 1.55; }
+  #fail code { color: #e2e4ed; background: #1a1d27; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<canvas id="sim"></canvas>
+
+<div id="panel">
+  <h1 id="title">WebGPU Fluid <span class="tag">▾</span></h1>
+  <div class="body">
+    <div class="ctrl">
+      <label>Downscale <span class="val" id="dsVal">1×</span></label>
+      <div class="seg" id="dsSeg"></div>
+      <div class="stat" id="gridStat">—</div>
+    </div>
+    <div class="ctrl">
+      <label>Pressure iterations <span class="val" id="iterVal">30</span></label>
+      <input type="range" id="iter" min="4" max="80" step="1" value="30">
+    </div>
+    <div class="ctrl">
+      <label>Dye dissipation <span class="val" id="dyeVal">0.997</span></label>
+      <input type="range" id="dye" min="0.90" max="1.00" step="0.001" value="0.997">
+    </div>
+    <div class="ctrl">
+      <label>Velocity dissipation <span class="val" id="velVal">0.999</span></label>
+      <input type="range" id="vel" min="0.90" max="1.00" step="0.001" value="0.999">
+    </div>
+    <div class="ctrl">
+      <label>Splat radius <span class="val" id="radVal">0.20</span></label>
+      <input type="range" id="rad" min="0.02" max="0.60" step="0.01" value="0.20">
+    </div>
+    <div class="ctrl">
+      <label>Force strength <span class="val" id="frcVal">6.0</span></label>
+      <input type="range" id="frc" min="1" max="20" step="0.5" value="6">
+    </div>
+    <div class="ctrl row">
+      <button id="splatBtn">Random splats</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <div class="stat" id="fps">—</div>
+  </div>
+</div>
+
+<div id="fail"><div class="card">
+  <h2>WebGPU not available</h2>
+  <p id="failMsg">This demo needs WebGPU. Try a recent Chrome, Edge, or Safari (Technology Preview) on desktop. On Firefox enable <code>dom.webgpu.enabled</code>.</p>
+</div></div>
+
+<script type="module">
+// =====================================================================
+//  WebGPU Stable Fluids (Jos Stam, "Stable Fluids" 1999)
+//  Pipeline per frame:
+//    splat(forces+dye) -> advect velocity -> divergence
+//      -> pressure (Jacobi x N) -> gradient subtract (project)
+//      -> advect dye -> render dye to screen (bilinear upscale)
+//  All fields live on the GPU as ping-pong textures. The simulation
+//  grid resolution is (canvas / downscale); the final blit stretches
+//  it to fill the screen.
+// =====================================================================
+
+const fail = (msg) => {
+  const f = document.getElementById('fail');
+  if (msg) document.getElementById('failMsg').textContent = msg;
+  f.style.display = 'grid';
+  document.getElementById('panel').style.display = 'none';
+};
+
+if (!navigator.gpu) { fail(); throw new Error('no webgpu'); }
+
+const adapter = await navigator.gpu.requestAdapter();
+if (!adapter) { fail('requestAdapter() returned null — no compatible GPU adapter.'); throw new Error('no adapter'); }
+const device = await adapter.requestDevice();
+device.addEventListener?.('uncapturederror', (e) => console.error('WebGPU error:', e.error?.message || e));
+
+const canvas = document.getElementById('sim');
+const ctx = canvas.getContext('webgpu');
+const format = navigator.gpu.getPreferredCanvasFormat();
+ctx.configure({ device, format, alphaMode: 'opaque' });
+
+// ---- formats -------------------------------------------------------
+// Velocity needs to be filterable for bilinear advection. rg16float is
+// filterable & renderable on all WebGPU implementations. Dye uses
+// rgba16float for HDR-ish color without banding.
+const VEL_FMT = 'rg16float';
+const FLD_FMT = 'r16float';     // divergence / pressure
+const DYE_FMT = 'rgba16float';
+
+// =====================================================================
+//  Shaders
+// =====================================================================
+const FULLSCREEN_VS = `
+struct VSOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f };
+@vertex fn vs(@builtin(vertex_index) i: u32) -> VSOut {
+  // big triangle covering the screen
+  var p = array<vec2f,3>(vec2f(-1.,-1.), vec2f(3.,-1.), vec2f(-1.,3.));
+  var o: VSOut;
+  o.pos = vec4f(p[i], 0., 1.);
+  o.uv  = p[i] * 0.5 + 0.5;       // 0..1, y up
+  o.uv.y = 1.0 - o.uv.y;          // flip so v=0 at top
+  return o;
+}`;
+
+// Uniform block shared by the simulation passes.
+const UNIFORMS = `
+struct U {
+  texel    : vec2f,   // 1 / grid size
+  gridSize : vec2f,   // grid resolution in cells
+  dt       : f32,
+  velDiss  : f32,
+  dyeDiss  : f32,
+  radius   : f32,     // splat radius (in uv units)
+  splatPos : vec2f,   // uv of pointer
+  splatVel : vec2f,   // velocity to inject
+  splatCol : vec3f,   // dye color
+  splatActive : f32,
+};
+@group(0) @binding(0) var<uniform> u : U;
+@group(0) @binding(1) var samp : sampler;
+`;
+
+// --- advection (semi-Lagrangian backtrace) --------------------------
+const ADVECT = UNIFORMS + FULLSCREEN_VS + `
+@group(0) @binding(2) var velTex : texture_2d<f32>;
+@group(0) @binding(3) var srcTex : texture_2d<f32>;
+@group(0) @binding(4) var<uniform> diss : f32;
+@fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f {
+  let v = textureSample(velTex, samp, uv).xy;
+  let coord = uv - u.dt * v * u.texel;   // backtrace
+  let result = textureSample(srcTex, samp, coord);
+  return result * diss;
+}`;
+
+// --- divergence of velocity -----------------------------------------
+const DIVERGENCE = UNIFORMS + FULLSCREEN_VS + `
+@group(0) @binding(2) var velTex : texture_2d<f32>;
+fn vel(uv: vec2f) -> vec2f { return textureSample(velTex, samp, uv).xy; }
+@fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f {
+  let t = u.texel;
+  let l = vel(uv - vec2f(t.x, 0.)).x;
+  let r = vel(uv + vec2f(t.x, 0.)).x;
+  let b = vel(uv - vec2f(0., t.y)).y;
+  let tp= vel(uv + vec2f(0., t.y)).y;
+  let div = 0.5 * ((r - l) + (tp - b));
+  return vec4f(div, 0., 0., 1.);
+}`;
+
+// --- Jacobi pressure iteration --------------------------------------
+const PRESSURE = UNIFORMS + FULLSCREEN_VS + `
+@group(0) @binding(2) var divTex : texture_2d<f32>;
+@group(0) @binding(3) var prsTex : texture_2d<f32>;
+fn P(uv: vec2f) -> f32 { return textureSample(prsTex, samp, uv).x; }
+@fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f {
+  let t = u.texel;
+  let l = P(uv - vec2f(t.x, 0.));
+  let r = P(uv + vec2f(t.x, 0.));
+  let b = P(uv - vec2f(0., t.y));
+  let tp= P(uv + vec2f(0., t.y));
+  let div = textureSample(divTex, samp, uv).x;
+  let p = (l + r + b + tp - div) * 0.25;
+  return vec4f(p, 0., 0., 1.);
+}`;
+
+// --- subtract pressure gradient (make divergence-free) --------------
+const GRADIENT = UNIFORMS + FULLSCREEN_VS + `
+@group(0) @binding(2) var prsTex : texture_2d<f32>;
+@group(0) @binding(3) var velTex : texture_2d<f32>;
+fn P(uv: vec2f) -> f32 { return textureSample(prsTex, samp, uv).x; }
+@fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f {
+  let t = u.texel;
+  let l = P(uv - vec2f(t.x, 0.));
+  let r = P(uv + vec2f(t.x, 0.));
+  let b = P(uv - vec2f(0., t.y));
+  let tp= P(uv + vec2f(0., t.y));
+  var v = textureSample(velTex, samp, uv).xy;
+  v -= 0.5 * vec2f(r - l, tp - b);
+  return vec4f(v, 0., 1.);
+}`;
+
+// --- splat: add a gaussian blob of velocity OR dye ------------------
+const SPLAT = UNIFORMS + FULLSCREEN_VS + `
+@group(0) @binding(2) var baseTex : texture_2d<f32>;
+@group(0) @binding(3) var<uniform> mode : f32;  // 0 = velocity, 1 = dye
+@fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f {
+  var d = uv - u.splatPos;
+  d.x *= u.gridSize.x / u.gridSize.y;     // aspect-correct round splat
+  let g = exp(-dot(d, d) / max(u.radius * u.radius, 1e-6)) * u.splatActive;
+  let base = textureSample(baseTex, samp, uv);
+  if (mode < 0.5) {
+    return vec4f(base.xy + u.splatVel * g, 0., 1.);
+  } else {
+    return vec4f(base.xyz + u.splatCol * g, 1.);
+  }
+}`;
+
+// --- final display: sample dye, tonemap, blit to screen -------------
+const DISPLAY = FULLSCREEN_VS + `
+@group(0) @binding(0) var samp : sampler;
+@group(0) @binding(1) var dyeTex : texture_2d<f32>;
+@fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f {
+  var c = textureSample(dyeTex, samp, uv).xyz;
+  c = c / (1.0 + c);                       // Reinhard tonemap
+  c = pow(c, vec3f(1.0/2.2));              // gamma
+  return vec4f(c, 1.0);
+}`;
+
+// =====================================================================
+//  Pipeline helpers
+// =====================================================================
+const linear = device.createSampler({ magFilter: 'linear', minFilter: 'linear',
+  addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' });
+
+function makePipeline(code, target) {
+  const m = device.createShaderModule({ code });
+  return device.createRenderPipeline({
+    layout: 'auto',
+    vertex: { module: m, entryPoint: 'vs' },
+    fragment: { module: m, entryPoint: 'fs', targets: [{ format: target }] },
+    primitive: { topology: 'triangle-list' },
+  });
+}
+
+const pAdvect   = makePipeline(ADVECT, VEL_FMT);   // also used for dye target (compat: rg vs rgba ok? need separate)
+const pAdvectDye= makePipeline(ADVECT, DYE_FMT);
+const pDiverge  = makePipeline(DIVERGENCE, FLD_FMT);
+const pPressure = makePipeline(PRESSURE, FLD_FMT);
+const pGradient = makePipeline(GRADIENT, VEL_FMT);
+const pSplatVel = makePipeline(SPLAT, VEL_FMT);
+const pSplatDye = makePipeline(SPLAT, DYE_FMT);
+const pDisplay  = makePipeline(DISPLAY, format);
+
+// uniform buffers
+const U_SIZE = 256; // generous, 16-byte aligned struct padded
+const uBuf = device.createBuffer({ size: U_SIZE, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const dissBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const modeBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+
+// =====================================================================
+//  Field textures (ping-pong) — rebuilt on resize / downscale change
+// =====================================================================
+let gridW = 1, gridH = 1;
+let vel, dye, prs, div;   // each {a,b, write,read,swap}
+
+function makeField(w, h, fmt) {
+  const usage = GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST;
+  const a = device.createTexture({ size: [w, h], format: fmt, usage });
+  const b = device.createTexture({ size: [w, h], format: fmt, usage });
+  return {
+    a, b, read: a, write: b,
+    swap() { const t = this.read; this.read = this.write; this.write = t; },
+    aview: a.createView(), bview: b.createView(),
+    readView() { return this.read === this.a ? this.aview : this.bview; },
+    writeView() { return this.write === this.a ? this.aview : this.bview; },
+  };
+}
+
+function allocFields() {
+  vel?.a.destroy(); vel?.b.destroy();
+  dye?.a.destroy(); dye?.b.destroy();
+  prs?.a.destroy(); prs?.b.destroy();
+  div?.a.destroy(); div?.b.destroy();
+  vel = makeField(gridW, gridH, VEL_FMT);
+  dye = makeField(gridW, gridH, DYE_FMT);
+  prs = makeField(gridW, gridH, FLD_FMT);
+  div = makeField(gridW, gridH, FLD_FMT);
+}
+
+// =====================================================================
+//  State / controls
+// =====================================================================
+const state = {
+  downscale: 1,
+  iters: 30,
+  dyeDiss: 0.997,
+  velDiss: 0.999,
+  radius: 0.20,
+  force: 6.0,
+};
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cw = Math.max(1, Math.floor(window.innerWidth  * dpr));
+  const ch = Math.max(1, Math.floor(window.innerHeight * dpr));
+  canvas.width = cw; canvas.height = ch;
+  gridW = Math.max(2, Math.floor(cw / state.downscale));
+  gridH = Math.max(2, Math.floor(ch / state.downscale));
+  allocFields();
+  document.getElementById('gridStat').textContent =
+    `grid ${gridW}×${gridH}  ·  canvas ${cw}×${ch}`;
+}
+
+// =====================================================================
+//  Pass execution helpers
+// =====================================================================
+function pass(enc, view, load='clear') {
+  return enc.beginRenderPass({ colorAttachments: [{
+    view, clearValue: { r:0, g:0, b:0, a:0 },
+    loadOp: load === 'clear' ? 'clear' : 'load', storeOp: 'store',
+  }]});
+}
+function draw(enc, pipeline, targetView, entries) {
+  const p = pass(enc, targetView);
+  p.setPipeline(pipeline);
+  p.setBindGroup(0, device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0), entries,
+  }));
+  p.draw(3);
+  p.end();
+}
+const B = (binding, resource) => ({ binding, resource });
+
+// =====================================================================
+//  Pointer input
+// =====================================================================
+const pointers = new Map();
+let splatQueue = [];   // {pos, vel, col, active}
+
+function colorFromTime(t) {
+  // cycle hue
+  const h = (t * 0.05) % 1;
+  const k = (n) => (n + h*6) % 6;
+  const f = (n) => 0.6 + 0.6*Math.max(0, Math.min(1, Math.min(k(n), 4-k(n), 1)));
+  return [f(5), f(3), f(1)];
+}
+
+function pointerToUV(e) {
+  const r = canvas.getBoundingClientRect();
+  return [ (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height ];
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  const uv = pointerToUV(e);
+  pointers.set(e.pointerId, { uv, col: colorFromTime(performance.now()*0.001) });
+});
+canvas.addEventListener('pointermove', (e) => {
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  const uv = pointerToUV(e);
+  const dx = uv[0] - p.uv[0], dy = uv[1] - p.uv[1];
+  splatQueue.push({
+    pos: uv,
+    vel: [dx * state.force * 600, dy * state.force * 600],
+    col: p.col.map(c => c * 0.25),
+    active: 1,
+  });
+  p.uv = uv;
+});
+const endPtr = (e) => { pointers.delete(e.pointerId); };
+canvas.addEventListener('pointerup', endPtr);
+canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('pointerleave', endPtr);
+
+function randomSplats(n = 10) {
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const mag = 1500 + Math.random() * 2500;
+    splatQueue.push({
+      pos: [Math.random(), Math.random()],
+      vel: [Math.cos(ang)*mag, Math.sin(ang)*mag],
+      col: colorFromTime(Math.random()*20).map(c => c * 0.5),
+      active: 1,
+    });
+  }
+}
+
+// =====================================================================
+//  Uniform packing
+// =====================================================================
+const uData = new Float32Array(U_SIZE / 4);
+function writeUniforms(dt, splat) {
+  // layout must match struct U (std140-ish; vec2 align 8, vec3 align 16)
+  let o = 0;
+  uData[o++] = 1/gridW; uData[o++] = 1/gridH;        // texel  (vec2)
+  uData[o++] = gridW;   uData[o++] = gridH;          // gridSize(vec2)
+  uData[o++] = dt;                                    // dt
+  uData[o++] = state.velDiss;                         // velDiss
+  uData[o++] = state.dyeDiss;                         // dyeDiss
+  uData[o++] = state.radius;                          // radius
+  uData[o++] = splat ? splat.pos[0] : 0;             // splatPos.x
+  uData[o++] = splat ? splat.pos[1] : 0;             // splatPos.y
+  uData[o++] = splat ? splat.vel[0] : 0;             // splatVel.x  (float idx 10)
+  uData[o++] = splat ? splat.vel[1] : 0;             // splatVel.y  (float idx 11)
+  // splatCol is vec3f at byte offset 48 = float idx 12 (16B aligned ✓).
+  // o is already 12 here, so no padding needed.
+  uData[o++] = splat ? splat.col[0] : 0;             // splatCol.x  (idx 12)
+  uData[o++] = splat ? splat.col[1] : 0;             // splatCol.y  (idx 13)
+  uData[o++] = splat ? splat.col[2] : 0;             // splatCol.z  (idx 14)
+  uData[o++] = splat ? splat.active : 0;             // splatActive (idx 15)
+  device.queue.writeBuffer(uBuf, 0, uData.buffer, 0, U_SIZE);
+}
+
+// =====================================================================
+//  Simulation step
+// =====================================================================
+function applySplat(enc, splat) {
+  writeUniforms(0, splat);
+  // velocity
+  device.queue.writeBuffer(modeBuf, 0, new Float32Array([0,0,0,0]));
+  draw(enc, pSplatVel, vel.writeView(), [
+    B(0, { buffer: uBuf }), B(1, linear),
+    B(2, vel.readView()), B(3, { buffer: modeBuf }),
+  ]);
+  vel.swap();
+  // dye
+  device.queue.writeBuffer(modeBuf, 0, new Float32Array([1,0,0,0]));
+  draw(enc, pSplatDye, dye.writeView(), [
+    B(0, { buffer: uBuf }), B(1, linear),
+    B(2, dye.readView()), B(3, { buffer: modeBuf }),
+  ]);
+  dye.swap();
+}
+
+function step(dt) {
+  const enc = device.createCommandEncoder();
+  writeUniforms(dt, null);
+
+  // 1. apply queued splats (each needs its own uniform write -> own encoder section)
+  if (splatQueue.length) {
+    for (const s of splatQueue) applySplat(enc, s);
+    splatQueue = [];
+    writeUniforms(dt, null); // restore dt-based uniforms for sim passes
+  }
+
+  // 2. advect velocity by itself
+  device.queue.writeBuffer(dissBuf, 0, new Float32Array([state.velDiss,0,0,0]));
+  draw(enc, pAdvect, vel.writeView(), [
+    B(0, { buffer: uBuf }), B(1, linear),
+    B(2, vel.readView()), B(3, vel.readView()), B(4, { buffer: dissBuf }),
+  ]);
+  vel.swap();
+
+  // 3. divergence
+  draw(enc, pDiverge, div.writeView(), [
+    B(0, { buffer: uBuf }), B(1, linear), B(2, vel.readView()),
+  ]);
+  div.swap();
+
+  // 4. clear pressure then Jacobi iterate
+  {
+    const p = pass(enc, prs.writeView()); p.end(); prs.swap(); // clear to 0
+  }
+  for (let i = 0; i < state.iters; i++) {
+    draw(enc, pPressure, prs.writeView(), [
+      B(0, { buffer: uBuf }), B(1, linear),
+      B(2, div.readView()), B(3, prs.readView()),
+    ]);
+    prs.swap();
+  }
+
+  // 5. subtract gradient
+  draw(enc, pGradient, vel.writeView(), [
+    B(0, { buffer: uBuf }), B(1, linear),
+    B(2, prs.readView()), B(3, vel.readView()),
+  ]);
+  vel.swap();
+
+  // 6. advect dye through velocity field
+  device.queue.writeBuffer(dissBuf, 0, new Float32Array([state.dyeDiss,0,0,0]));
+  draw(enc, pAdvectDye, dye.writeView(), [
+    B(0, { buffer: uBuf }), B(1, linear),
+    B(2, vel.readView()), B(3, dye.readView()), B(4, { buffer: dissBuf }),
+  ]);
+  dye.swap();
+
+  // 7. display
+  const p = pass(enc, ctx.getCurrentTexture().createView());
+  p.setPipeline(pDisplay);
+  p.setBindGroup(0, device.createBindGroup({
+    layout: pDisplay.getBindGroupLayout(0),
+    entries: [ B(0, linear), B(1, dye.readView()) ],
+  }));
+  p.draw(3);
+  p.end();
+
+  device.queue.submit([enc.finish()]);
+}
+
+// =====================================================================
+//  Main loop
+// =====================================================================
+let last = performance.now();
+let fpsAcc = 0, fpsN = 0, fpsT = 0;
+function frame(now) {
+  let dt = (now - last) / 1000;
+  last = now;
+  dt = Math.min(dt, 1/30);          // clamp for stability
+  const simDt = dt * 60;            // scale so motion ~ resolution independent
+
+  step(simDt);
+
+  // fps display
+  fpsAcc += dt; fpsN++; fpsT += dt;
+  if (fpsT > 0.5) {
+    document.getElementById('fps').textContent =
+      `${(fpsN/fpsAcc).toFixed(0)} fps  ·  ${(simDt).toFixed(2)} dt`;
+    fpsAcc = 0; fpsN = 0; fpsT = 0;
+  }
+  requestAnimationFrame(frame);
+}
+
+// =====================================================================
+//  UI wiring
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+
+// downscale segmented control
+const dsSeg = $('dsSeg');
+[1,2,3,4,6,8].forEach(m => {
+  const b = document.createElement('button');
+  b.textContent = m + '×';
+  if (m === state.downscale) b.classList.add('active');
+  b.onclick = () => {
+    state.downscale = m;
+    [...dsSeg.children].forEach(c => c.classList.toggle('active', c === b));
+    $('dsVal').textContent = m + '×';
+    resize();
+  };
+  dsSeg.appendChild(b);
+});
+
+function slider(id, valId, fmt, set) {
+  const el = $(id);
+  const upd = () => { const v = parseFloat(el.value); set(v); $(valId).textContent = fmt(v); };
+  el.oninput = upd; upd();
+}
+slider('iter', 'iterVal', v => v.toFixed(0),   v => state.iters   = v|0);
+slider('dye',  'dyeVal',  v => v.toFixed(3),   v => state.dyeDiss = v);
+slider('vel',  'velVal',  v => v.toFixed(3),   v => state.velDiss = v);
+slider('rad',  'radVal',  v => v.toFixed(2),   v => state.radius  = v);
+slider('frc',  'frcVal',  v => v.toFixed(1),   v => state.force   = v);
+
+$('splatBtn').onclick = () => randomSplats(12);
+$('clearBtn').onclick = () => { allocFields(); }; // fresh zeroed textures
+
+// collapse panel
+$('title').onclick = () => {
+  const p = $('panel'); p.classList.toggle('collapsed');
+  $('title').querySelector('.tag').textContent = p.classList.contains('collapsed') ? '▸' : '▾';
+};
+
+window.addEventListener('resize', resize);
+
+// =====================================================================
+//  Boot
+// =====================================================================
+resize();
+randomSplats(14);          // welcome burst
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
