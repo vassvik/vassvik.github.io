@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGPU Canary</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e2e4ed;
+    min-height: 100vh;
+    padding: 1.5rem 1rem;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 1.3rem; margin-bottom: 1rem; }
+  .verdict {
+    font-size: 1.4rem;
+    font-weight: 700;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    text-align: center;
+  }
+  .ok   { background: #14331f; color: #4ade80; border: 1px solid #2c6b41; }
+  .bad  { background: #3a1717; color: #f87171; border: 1px solid #7a2c2c; }
+  .wait { background: #1a1d27; color: #8b8fa3; border: 1px solid #2e3348; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  td { padding: 0.5rem 0.5rem; border-bottom: 1px solid #2e3348; vertical-align: top; }
+  td.k { color: #8b8fa3; width: 42%; }
+  td.v { color: #e2e4ed; word-break: break-word; }
+  .pass { color: #4ade80; }
+  .fail { color: #f87171; }
+  canvas { width: 100%; max-width: 320px; height: 120px; margin-top: 1.25rem;
+           border: 1px solid #2e3348; border-radius: 8px; display: block; }
+  .note { margin-top: 1rem; font-size: 0.8rem; color: #8b8fa3; }
+</style>
+</head>
+<body>
+  <h1>WebGPU Canary</h1>
+  <div id="verdict" class="verdict wait">checking…</div>
+  <table id="report"></table>
+  <canvas id="c" width="320" height="120"></canvas>
+  <div class="note">A green triangle below means render works. The table reports adapter details.</div>
+
+<script>
+const rows = [];
+function row(k, v, status) {
+  const cls = status === undefined ? '' : (status ? 'pass' : 'fail');
+  rows.push(`<tr><td class="k">${k}</td><td class="v ${cls}">${v}</td></tr>`);
+  document.getElementById('report').innerHTML = rows.join('');
+}
+function verdict(text, kind) {
+  const el = document.getElementById('verdict');
+  el.textContent = text;
+  el.className = 'verdict ' + kind;
+}
+
+(async () => {
+  row('User agent', navigator.userAgent);
+
+  if (!('gpu' in navigator)) {
+    row('navigator.gpu', 'missing', false);
+    verdict('WebGPU NOT available', 'bad');
+    return;
+  }
+  row('navigator.gpu', 'present', true);
+
+  let adapter;
+  try {
+    adapter = await navigator.gpu.requestAdapter();
+  } catch (e) {
+    row('requestAdapter()', 'threw: ' + e.message, false);
+    verdict('WebGPU adapter error', 'bad');
+    return;
+  }
+  if (!adapter) {
+    row('requestAdapter()', 'returned null', false);
+    verdict('No WebGPU adapter', 'bad');
+    return;
+  }
+  row('requestAdapter()', 'ok', true);
+
+  try {
+    const info = adapter.info || (adapter.requestAdapterInfo ? await adapter.requestAdapterInfo() : null);
+    if (info) {
+      row('vendor', info.vendor || '(blank)');
+      row('architecture', info.architecture || '(blank)');
+      row('description', info.description || '(blank)');
+    }
+  } catch (e) { row('adapter.info', 'n/a', undefined); }
+
+  row('maxBufferSize', adapter.limits.maxBufferSize.toLocaleString());
+  row('maxComputeWorkgroupStorageSize', adapter.limits.maxComputeWorkgroupStorageSize.toLocaleString());
+  row('maxTextureDimension2D', adapter.limits.maxTextureDimension2D.toLocaleString());
+
+  let device;
+  try {
+    device = await adapter.requestDevice();
+    row('requestDevice()', 'ok', true);
+  } catch (e) {
+    row('requestDevice()', 'threw: ' + e.message, false);
+    verdict('Adapter ok, device FAILED', 'bad');
+    return;
+  }
+
+  // Minimal render test: a green triangle.
+  try {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('webgpu');
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    ctx.configure({ device, format, alphaMode: 'opaque' });
+
+    const shader = device.createShaderModule({ code: `
+      @vertex fn vs(@builtin(vertex_index) i : u32) -> @builtin(position) vec4f {
+        var p = array<vec2f,3>(vec2f(0.0,0.7), vec2f(-0.7,-0.7), vec2f(0.7,-0.7));
+        return vec4f(p[i], 0.0, 1.0);
+      }
+      @fragment fn fs() -> @location(0) vec4f { return vec4f(0.29, 0.87, 0.50, 1.0); }
+    `});
+    const pipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: shader, entryPoint: 'vs' },
+      fragment: { module: shader, entryPoint: 'fs', targets: [{ format }] },
+      primitive: { topology: 'triangle-list' },
+    });
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginRenderPass({
+      colorAttachments: [{
+        view: ctx.getCurrentTexture().createView(),
+        clearValue: { r: 0.06, g: 0.07, b: 0.09, a: 1 },
+        loadOp: 'clear', storeOp: 'store',
+      }],
+    });
+    pass.setPipeline(pipeline);
+    pass.draw(3);
+    pass.end();
+    device.queue.submit([enc.finish()]);
+    row('render test', 'submitted', true);
+    verdict('WebGPU WORKS ✓', 'ok');
+  } catch (e) {
+    row('render test', 'threw: ' + e.message, false);
+    verdict('Device ok, render FAILED', 'bad');
+  }
+})();
+</script>
+</body>
+</html>
